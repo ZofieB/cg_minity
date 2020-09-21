@@ -132,3 +132,5 @@ fabric.properties
 
 # Ignore the whole .idea folder -- added by Juraj
 .idea
+
+.vs
