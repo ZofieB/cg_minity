@@ -121,6 +121,10 @@ public:
 		std::string map_d;
 		// Bump Map
 		std::string map_bump;
+		// Object Space Normal Map
+		std::string map_objectSpaceNormals;
+		// Tangent Space Normal Map
+		std::string map_tangentSpaceNormals;
 	};
 
 	bool loadObjFile(const std::string & filename)
@@ -662,6 +666,32 @@ public:
 				newMaterial.bumpTexture = std::move(loadTexture(texturePath.string()));
 			}
 
+			if (!m.map_objectSpaceNormals.empty())
+			{
+				std::filesystem::path texturePath = m.map_objectSpaceNormals;
+
+				if (!texturePath.is_absolute())
+				{
+					texturePath = path.parent_path();
+					texturePath.append(m.map_objectSpaceNormals);
+				}
+
+				newMaterial.objectSpaceNormalTexture = std::move(loadTexture(texturePath.string()));
+			}
+
+			if (!m.map_tangentSpaceNormals.empty())
+			{
+				std::filesystem::path texturePath = m.map_tangentSpaceNormals;
+
+				if (!texturePath.is_absolute())
+				{
+					texturePath = path.parent_path();
+					texturePath.append(m.map_tangentSpaceNormals);
+				}
+
+				newMaterial.tangentSpaceNormalTexture = std::move(loadTexture(texturePath.string()));
+			}
+
 			m_materials.push_back(newMaterial);
 
 		}
@@ -813,6 +843,26 @@ public:
 							map_bump = trim(map_bump);
 							materials[currentMaterialIndex].map_bump = map_bump;
 						}
+					}
+					// Object Space Normal Map
+					else if (token == "map_ObjectNormals")
+					{
+					std::string map_objectSpaceNormals;
+					if (getline(iss, map_objectSpaceNormals))
+					{
+						map_objectSpaceNormals = trim(map_objectSpaceNormals);
+						materials[currentMaterialIndex].map_objectSpaceNormals = map_objectSpaceNormals;
+					}
+					}
+					// Tangent Space Normal Map
+					else if (token == "map_TangentNormals")
+					{
+					std::string map_tangentSpaceNormals;
+					if (getline(iss, map_tangentSpaceNormals))
+					{
+						map_tangentSpaceNormals = trim(map_tangentSpaceNormals);
+						materials[currentMaterialIndex].map_tangentSpaceNormals = map_tangentSpaceNormals;
+					}
 					}
 				}
 			}

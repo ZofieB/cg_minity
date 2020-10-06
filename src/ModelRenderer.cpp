@@ -104,6 +104,21 @@ void ModelRenderer::display()
 		ImGui::EndMenu();
 	}
 
+	if (ImGui::Begin("Parameter"))
+	{
+		ImGui::Text("Assignment 1");
+		ImGui::SliderInt("shininess", &m_shininess, 5, 100);
+		ImGui::ColorEdit3("ia", (float*)&m_ambient);
+		ImGui::ColorEdit3("is", (float*)&m_specular);
+		ImGui::ColorEdit3("id", (float*)&m_diffuse);
+
+		ImGui::Text("Assignment 2");
+		ImGui::Checkbox("Ambient texturing", &amb_tex);
+		ImGui::Checkbox("Diffuse texturing", &diff_tex);
+		ImGui::Checkbox("Specular texturing", &spec_tex);
+		ImGui::End();
+	}
+
 	vec4 worldCameraPosition = inverseModelViewMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
 	vec4 worldLightPosition = inverseModelLightMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
@@ -113,6 +128,13 @@ void ModelRenderer::display()
 	shaderProgramModelBase->setUniform("worldLightPosition", vec3(worldLightPosition));
 	shaderProgramModelBase->setUniform("wireframeEnabled", wireframeEnabled);
 	shaderProgramModelBase->setUniform("wireframeLineColor", wireframeLineColor);
+
+	//new passed variables
+	shaderProgramModelBase->setUniform("normalMatrix", normalMatrix);
+	shaderProgramModelBase->setUniform("shininess", m_shininess);
+	shaderProgramModelBase->setUniform("ia", m_ambient);
+	shaderProgramModelBase->setUniform("is", m_specular);
+	shaderProgramModelBase->setUniform("id", m_diffuse);
 	
 	shaderProgramModelBase->use();
 
@@ -122,7 +144,10 @@ void ModelRenderer::display()
 		{
 			const Material & material = materials.at(groups.at(i).materialIndex);
 
-			shaderProgramModelBase->setUniform("diffuseColor", material.diffuse);
+			//pass material properties to shader for phong illumintation
+			shaderProgramModelBase->setUniform("kd", material.diffuse);
+			shaderProgramModelBase->setUniform("ks", material.specular);
+			shaderProgramModelBase->setUniform("ka", material.ambient);
 
 			if (material.diffuseTexture)
 			{
