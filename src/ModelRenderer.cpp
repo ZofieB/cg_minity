@@ -73,7 +73,7 @@ void ModelRenderer::display()
 	const std::vector<Material> & materials = viewer()->scene()->model()->materials();
 
 	static std::vector<bool> groupEnabled(groups.size(), true);
-	static bool wireframeEnabled = true;
+	static bool wireframeEnabled = false;
 	static bool lightSourceEnabled = true;
 	static vec4 wireframeLineColor = vec4(1.0f);
 
@@ -113,9 +113,29 @@ void ModelRenderer::display()
 		ImGui::ColorEdit3("id", (float*)&m_diffuse);
 
 		ImGui::Text("Assignment 2");
-		ImGui::Checkbox("Ambient texturing", &amb_tex);
 		ImGui::Checkbox("Diffuse texturing", &diff_tex);
+		ImGui::Checkbox("Ambient texturing", &amb_tex);
 		ImGui::Checkbox("Specular texturing", &spec_tex);
+
+		if (ImGui::BeginMenu("Normal Maps"))
+		{
+			if (ImGui::MenuItem("None"))
+			{
+				obj_norm_map = false;
+				tan_norm_map = false;
+			}
+			if (ImGui::MenuItem("Object Space Normal Mapping"))
+			{
+				obj_norm_map = true;
+				tan_norm_map = false;
+			}
+			if (ImGui::MenuItem("Tangent Space Normal Mapping"))
+			{
+				tan_norm_map = true;
+				obj_norm_map = false;
+			}
+			ImGui::EndMenu();
+		}
 		ImGui::End();
 	}
 
@@ -131,10 +151,16 @@ void ModelRenderer::display()
 
 	//new passed variables
 	shaderProgramModelBase->setUniform("normalMatrix", normalMatrix);
-	shaderProgramModelBase->setUniform("shininess", m_shininess);
+	shaderProgramModelBase->setUniform("gui_shininess", m_shininess);
 	shaderProgramModelBase->setUniform("ia", m_ambient);
 	shaderProgramModelBase->setUniform("is", m_specular);
 	shaderProgramModelBase->setUniform("id", m_diffuse);
+	//boolean flags
+	shaderProgramModelBase->setUniform("diffuseTextureEnabled", diff_tex);
+	shaderProgramModelBase->setUniform("ambientTextureEnabled", amb_tex);
+	shaderProgramModelBase->setUniform("specularTextureEnabled", spec_tex);
+	shaderProgramModelBase->setUniform("obj_norm_map", obj_norm_map);
+	shaderProgramModelBase->setUniform("tan_norm_map", tan_norm_map);
 	
 	shaderProgramModelBase->use();
 
@@ -148,19 +174,64 @@ void ModelRenderer::display()
 			shaderProgramModelBase->setUniform("kd", material.diffuse);
 			shaderProgramModelBase->setUniform("ks", material.specular);
 			shaderProgramModelBase->setUniform("ka", material.ambient);
+			//load material shininess if present instead of shininess slider
+			if (material.shininess)
+			{
+				shaderProgramModelBase->setUniform("mat_shininess", material.shininess);
+			}
 
 			if (material.diffuseTexture)
 			{
+				shaderProgramModelBase->setUniform("diff_tex_loaded", true);
 				shaderProgramModelBase->setUniform("diffuseTexture", 0);
 				material.diffuseTexture->bindActive(0);
+			}
+			if (material.ambientTexture)
+			{
+				shaderProgramModelBase->setUniform("amb_tex_loaded", true);
+				shaderProgramModelBase->setUniform("ambientTexture", 1);
+				material.ambientTexture->bindActive(1);
+			}
+			if (material.specularTexture)
+			{
+				shaderProgramModelBase->setUniform("spec_tex_loaded", true);
+				shaderProgramModelBase->setUniform("specularTexture", 2);
+				material.specularTexture->bindActive(2);
+			}
+			if (material.objectSpaceNormalTexture)
+			{
+				shaderProgramModelBase->setUniform("objectSpaceNormalTexture", 3);
+				material.objectSpaceNormalTexture->bindActive(3);
+			}
+			if (material.tangentSpaceNormalTexture)
+			{
+				shaderProgramModelBase->setUniform("tangentSpaceNormalTexture", 4);
+				material.objectSpaceNormalTexture->bindActive(4);
 			}
 
 			viewer()->scene()->model()->vertexArray().drawElements(GL_TRIANGLES, groups.at(i).count(), GL_UNSIGNED_INT, (void*)(sizeof(GLuint)*groups.at(i).startIndex));
 
+			if (material.tangentSpaceNormalTexture)
+			{
+				material.tangentSpaceNormalTexture->unbind();
+			}
+			if (material.objectSpaceNormalTexture)
+			{
+				material.objectSpaceNormalTexture->unbind();
+			}
+			if (material.specularTexture)
+			{
+				material.specularTexture->unbind();
+			}
+			if (material.ambientTexture)
+			{
+				material.ambientTexture->unbind();
+			}
 			if (material.diffuseTexture)
 			{
 				material.diffuseTexture->unbind();
 			}
+
 		}
 	}
 
