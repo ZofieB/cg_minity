@@ -136,6 +136,32 @@ void ModelRenderer::display()
 			}
 			ImGui::EndMenu();
 		}
+		if (tan_norm_map)
+		{
+			ImGui::Checkbox("Bump mapping", &bump_map);
+			if (bump_map)
+			{
+				if (ImGui::BeginMenu("Bump map function"))
+				{
+					if (ImGui::MenuItem("Sinus function"))
+					{
+						sinus = true;
+						sinus_sqr = false;
+					}
+					if (ImGui::MenuItem("Sinus squared function"))
+					{
+						sinus_sqr = true;
+						sinus = false;
+					}
+					ImGui::EndMenu();
+				}
+				if (sinus || sinus_sqr)
+				{
+					ImGui::SliderFloat("A", &amplitude, 0.1f, 8.0f);
+					ImGui::SliderFloat("k", &frequency, 5.0f, 500.0f);
+				}
+			}
+		}
 		ImGui::End();
 	}
 
@@ -143,6 +169,7 @@ void ModelRenderer::display()
 	vec4 worldLightPosition = inverseModelLightMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	shaderProgramModelBase->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
+	shaderProgramModelBase->setUniform("modelViewMatrix", modelViewMatrix);
 	shaderProgramModelBase->setUniform("viewportSize", viewportSize);
 	shaderProgramModelBase->setUniform("worldCameraPosition", vec3(worldCameraPosition));
 	shaderProgramModelBase->setUniform("worldLightPosition", vec3(worldLightPosition));
@@ -155,12 +182,20 @@ void ModelRenderer::display()
 	shaderProgramModelBase->setUniform("ia", m_ambient);
 	shaderProgramModelBase->setUniform("is", m_specular);
 	shaderProgramModelBase->setUniform("id", m_diffuse);
+
+	shaderProgramModelBase->setUniform("k", frequency);
+	shaderProgramModelBase->setUniform("a", amplitude);
+
 	//boolean flags
 	shaderProgramModelBase->setUniform("diffuseTextureEnabled", diff_tex);
 	shaderProgramModelBase->setUniform("ambientTextureEnabled", amb_tex);
 	shaderProgramModelBase->setUniform("specularTextureEnabled", spec_tex);
 	shaderProgramModelBase->setUniform("obj_norm_map", obj_norm_map);
 	shaderProgramModelBase->setUniform("tan_norm_map", tan_norm_map);
+
+	shaderProgramModelBase->setUniform("bump_map", bump_map);
+	shaderProgramModelBase->setUniform("sinus", sinus);
+	shaderProgramModelBase->setUniform("sinus_sqr", sinus_sqr);
 	
 	shaderProgramModelBase->use();
 
@@ -200,11 +235,13 @@ void ModelRenderer::display()
 			}
 			if (material.objectSpaceNormalTexture)
 			{
+				shaderProgramModelBase->setUniform("obj_norm_map_loaded", true);
 				shaderProgramModelBase->setUniform("objectSpaceNormalTexture", 3);
 				material.objectSpaceNormalTexture->bindActive(3);
 			}
 			if (material.tangentSpaceNormalTexture)
 			{
+				shaderProgramModelBase->setUniform("tan_norm_map_loaded", true);
 				shaderProgramModelBase->setUniform("tangentSpaceNormalTexture", 4);
 				material.objectSpaceNormalTexture->bindActive(4);
 			}

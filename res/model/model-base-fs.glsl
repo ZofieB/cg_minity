@@ -21,27 +21,35 @@ uniform mat3 normalMatrix;
 //new variables -- assignment 2
 uniform sampler2D diffuseTexture;
 uniform bool diff_tex_loaded = false;
+uniform bool diffuseTextureEnabled;
+
 uniform sampler2D ambientTexture;
 uniform bool amb_tex_loaded = false;
+uniform bool ambientTextureEnabled;
+
 uniform sampler2D specularTexture;
 uniform bool spec_tex_loaded = false;
+uniform bool specularTextureEnabled;
 
 uniform sampler2D objectSpaceNormalTexture;
-uniform sampler2D tangentSpaceNormalTexture;
-
-uniform bool diffuseTextureEnabled;
-uniform bool ambientTextureEnabled;
-uniform bool specularTextureEnabled;
 uniform bool obj_norm_map;
+uniform bool obj_norm_map_loaded = false;
+uniform sampler2D tangentSpaceNormalTexture;
 uniform bool tan_norm_map;
+uniform bool tan_norm_map_loaded = false;
 
-uniform mat4 modelViewProjectionMatrix;
+uniform bool bump_map;
+uniform bool sinus;
+uniform bool sinus_sqr;
+uniform float a;
+uniform float k;
 
 in fragmentData
 {
 	vec3 position;
 	vec3 normal;
 	vec2 texCoord;
+	mat3 TBNMatrix;
 	vec3 tangent;
 	vec3 bitangent;
 	noperspective vec3 edgeDistance;
@@ -53,33 +61,51 @@ void main()
 {
 	//compute fragment normal -> normal mapping
 	vec3 normal;
-	if (obj_norm_map)
+	vec3 position = fragment.position;
+	//object space normal mapping
+	if (obj_norm_map_loaded && obj_norm_map)
 	{
 		normal = texture(objectSpaceNormalTexture, fragment.texCoord).rgb;
 		normal = normalize(normal * 2.0 - 1.0);
 	}
-	else if (tan_norm_map)
+	//tangent space normal mapping
+	else if (tan_norm_map_loaded && tan_norm_map)
 	{
 		normal = texture(tangentSpaceNormalTexture, fragment.texCoord).rgb;
-		normal = normal * 2.0 - 1.0;
+		normal = normalize(normal * 2.0 - 1.0);
+		//transform normal from tangent space to world space
+		normal = normalize(fragment.TBNMatrix * normal);
+		if (bump_map)
+		{
+			float bump_map_value, bu, bv;
+			if (sinus_sqr)
+			{
+				//bump map function
+				bump_map_value = a * (sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.y) * sin(k * fragment.texCoord.y));
+				//derivative bump map in u direction
+				bu = a * k * sin(k * fragment.texCoord.y) * sin(k * fragment.texCoord.y) * sin(2 * k * fragment.texCoord.x);
+				//derivative bump map in v direction
+				bv = a * k * sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.x) * sin(2 * k * fragment.texCoord.y);
+			}
+			else if (sinus)
+			{
+				//other bump map function
+				bump_map_value = a * sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.y);
+				bu = a * sin(k * fragment.texCoord.y) * cos(k * fragment.texCoord.x) * k;
+				bv = a * sin(k * fragment.texCoord.x) * cos(k * fragment.texCoord.y) * k;
+			}
 
-		vec3 T = normalize( normalMatrix * vec3(modelViewProjectionMatrix * vec4(fragment.tangent, 0.0)));
-		//vec3 B = normalize( normalMatrix * vec3(modelViewProjectionMatrix * vec4(fragment.bitangent, 0.0)));
-		vec3 N = normalize(normal);
-
-		//using Gram-Schmidt to re-orthogonalize
-		T = normalize(T - dot(T, N) * N);
-		vec3 B = cross(N, T);
-
-		mat3 TBN = mat3(T, B, N);
-		normal = normalize(TBN * normal);
+			position = position + bump_map_value * normal;
+			//transform normal according to bump map
+			normal = normalize(normal + bv * cross(fragment.tangent, normal) + bu * cross(normal, fragment.bitangent));
+		}
 	}
 	else
 	{
 		normal = normalize(fragment.normal);
 	}
 
-	//if material shininess is loaded
+	//pick correct shininess based on given material shininess
 	float shininess;
 	if (mat_shininess != - 1.0)
 	{
@@ -90,10 +116,10 @@ void main()
 		shininess = gui_shininess;
 	}
 	//direction vector from surface point to light source
-	vec3 light = normalize( worldLightPosition - fragment.position );
+	vec3 light = normalize( worldLightPosition - position );
 
 	//direction vector pointing towards viewer
-	vec3 viewer = normalize( worldCameraPosition - fragment.position );
+	vec3 viewer = normalize( worldCameraPosition - position );
 
 	//calculate reflecition vector, reflection only if in viewer direction (positive), else it is 0
 	vec3 reflection = normalize( 2 * dot(light, normal) * normal - light );
@@ -108,7 +134,6 @@ void main()
 		float edgeIntensity = exp2(-1.0*smallestDistance*smallestDistance);
 		result.rgb = mix(result.rgb,wireframeLineColor.rgb,edgeIntensity*wireframeLineColor.a);
 	}
-	// TODO: dont load textures, if they are not specified! (even if checkbox active)
 	if (diffuseTextureEnabled && diff_tex_loaded)
 	{
 		 vec4 diffuse_tex = texture(diffuseTexture, fragment.texCoord);

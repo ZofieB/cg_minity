@@ -44,6 +44,11 @@ namespace minity
 		bool spec_tex = false;
 		bool obj_norm_map = false;
 		bool tan_norm_map = false;
+		bool bump_map = false;
+		bool sinus = false;
+		bool sinus_sqr = false;
+		float amplitude = 1.0f;
+		float frequency = 200.0f;
 	};
 
 }
