@@ -162,6 +162,10 @@ void ModelRenderer::display()
 				}
 			}
 		}
+
+		ImGui::Text("Assignment 3");
+		ImGui::SliderInt("Explosion factor", &m_explosion, 0, 100);
+
 		ImGui::End();
 	}
 
@@ -176,17 +180,21 @@ void ModelRenderer::display()
 	shaderProgramModelBase->setUniform("wireframeEnabled", wireframeEnabled);
 	shaderProgramModelBase->setUniform("wireframeLineColor", wireframeLineColor);
 
-	//new passed variables
+	//illumination model
 	shaderProgramModelBase->setUniform("normalMatrix", normalMatrix);
 	shaderProgramModelBase->setUniform("gui_shininess", m_shininess);
 	shaderProgramModelBase->setUniform("ia", m_ambient);
 	shaderProgramModelBase->setUniform("is", m_specular);
 	shaderProgramModelBase->setUniform("id", m_diffuse);
 
+	//bump mapping
 	shaderProgramModelBase->setUniform("k", frequency);
 	shaderProgramModelBase->setUniform("a", amplitude);
 
-	//boolean flags
+	//exploded view
+	shaderProgramModelBase->setUniform("explosion_factor", m_explosion);
+
+	//boolean flags for textures, bump maps and GUI control
 	shaderProgramModelBase->setUniform("diffuseTextureEnabled", diff_tex);
 	shaderProgramModelBase->setUniform("ambientTextureEnabled", amb_tex);
 	shaderProgramModelBase->setUniform("specularTextureEnabled", spec_tex);
@@ -201,6 +209,7 @@ void ModelRenderer::display()
 
 	for (uint i = 0; i < groups.size(); i++)
 	{
+		//use i index to access offset and pass to shader
 		if (groupEnabled.at(i))
 		{
 			const Material & material = materials.at(groups.at(i).materialIndex);
@@ -243,7 +252,7 @@ void ModelRenderer::display()
 			{
 				shaderProgramModelBase->setUniform("tan_norm_map_loaded", true);
 				shaderProgramModelBase->setUniform("tangentSpaceNormalTexture", 4);
-				material.objectSpaceNormalTexture->bindActive(4);
+				material.tangentSpaceNormalTexture->bindActive(4);
 			}
 
 			viewer()->scene()->model()->vertexArray().drawElements(GL_TRIANGLES, groups.at(i).count(), GL_UNSIGNED_INT, (void*)(sizeof(GLuint)*groups.at(i).startIndex));

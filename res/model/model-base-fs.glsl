@@ -73,8 +73,6 @@ void main()
 	{
 		normal = texture(tangentSpaceNormalTexture, fragment.texCoord).rgb;
 		normal = normalize(normal * 2.0 - 1.0);
-		//transform normal from tangent space to world space
-		normal = normalize(fragment.TBNMatrix * normal);
 		if (bump_map)
 		{
 			float bump_map_value, bu, bv;
@@ -83,9 +81,11 @@ void main()
 				//bump map function
 				bump_map_value = a * (sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.y) * sin(k * fragment.texCoord.y));
 				//derivative bump map in u direction
-				bu = a * k * sin(k * fragment.texCoord.y) * sin(k * fragment.texCoord.y) * sin(2 * k * fragment.texCoord.x);
+				//bu = a * k * sin(k * fragment.texCoord.y) * sin(k * fragment.texCoord.y) * sin(2 * k * fragment.texCoord.x);
+				bu = dFdx(bump_map_value);
 				//derivative bump map in v direction
-				bv = a * k * sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.x) * sin(2 * k * fragment.texCoord.y);
+				//bv = a * k * sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.x) * sin(2 * k * fragment.texCoord.y);
+				bv = dFdy(bump_map_value);
 			}
 			else if (sinus)
 			{
@@ -99,6 +99,8 @@ void main()
 			//transform normal according to bump map
 			normal = normalize(normal + bv * cross(fragment.tangent, normal) + bu * cross(normal, fragment.bitangent));
 		}
+		//transform normal from tangent space to world space
+		normal = normalize(fragment.TBNMatrix * normal);
 	}
 	else
 	{

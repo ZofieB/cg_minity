@@ -49,6 +49,7 @@ namespace minity
 		bool sinus_sqr = false;
 		float amplitude = 1.0f;
 		float frequency = 200.0f;
+		int m_explosion = 0;
 	};
 
 }

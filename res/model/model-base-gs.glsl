@@ -40,24 +40,12 @@ void main(void)
 
 	float area = abs(v[1].x*v[2].y - v[1].y * v[2].x);
 
-	for (int i=0;i<3;i++)
-	{
-		gl_Position = gl_in[i].gl_Position;
-		fragment.position = vertices[i].position;
-		fragment.normal = vertices[i].normal;
-		fragment.texCoord = vertices[i].texCoord;
-		
-		vec3 ed = vec3(0.0);
-		ed[i] = area / length(v[i]);
-		fragment.edgeDistance = ed;
-
-		
 		//calculate TBNMatrix
 		//triangle edges and uv distances 
-		vec3 edge1 = vertices[(i + 1) % 3].position - vertices[i].position;
-		vec3 edge2 = vertices[(i + 2) % 3].position - vertices[i].position;
-		vec2 deltaUV1 = vertices[(i + 1) % 3].texCoord - vertices[i].texCoord;
-		vec2 deltaUV2 = vertices[(i + 2) % 3].texCoord - vertices[i].texCoord;
+		vec3 edge1 = vertices[1].position - vertices[0].position;
+		vec3 edge2 = vertices[2].position - vertices[0].position;
+		vec2 deltaUV1 = vertices[1].texCoord - vertices[0].texCoord;
+		vec2 deltaUV2 = vertices[2].texCoord - vertices[0].texCoord;
 
 		//calculate tangent and bitangent out of edges and texture coordinates
 
@@ -73,11 +61,21 @@ void main(void)
 		bitangent.y = invDet * (- deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
 		bitangent.z = invDet * (- deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
 
-		tangent = normalize(normalMatrix * tangent);
-		bitangent = normalize(normalMatrix * bitangent);
-		vec3 normal = normalize(normalMatrix * vertices[i].normal);
+		tangent = normalize(tangent);
+		bitangent = normalize(bitangent);
 
-		fragment.TBNMatrix = mat3(tangent, bitangent, normal);
+	for (int i=0;i<3;i++)
+	{
+		gl_Position = gl_in[i].gl_Position;
+		fragment.position = vertices[i].position;
+		fragment.normal = vertices[i].normal;
+		fragment.texCoord = vertices[i].texCoord;
+		
+		vec3 ed = vec3(0.0);
+		ed[i] = area / length(v[i]);
+		fragment.edgeDistance = ed;
+
+		fragment.TBNMatrix = mat3(tangent, bitangent, normalize(vertices[i].normal));
 		fragment.tangent = tangent;
 		fragment.bitangent = bitangent;
 

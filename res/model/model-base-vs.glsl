@@ -3,6 +3,7 @@
 #include "/model-globals.glsl"
 
 uniform mat4 modelViewProjectionMatrix;
+uniform int explosion_factor;
 
 in vec3 position;
 in vec3 normal;
@@ -17,6 +18,7 @@ out vertexData
 
 void main()
 {
+	//add new offset vector ->  explosion animation
 	vec4 pos = modelViewProjectionMatrix*vec4(position,1.0);
 
 	vertex.position = position; 
