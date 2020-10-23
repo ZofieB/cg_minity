@@ -695,26 +695,23 @@ public:
 			m_materials.push_back(newMaterial);
 
 		}
+
 		//m_groups information about groups -> index
 		//bounding box computations
-		//positions[index]
-		for (Group g : m_groups)
+		for (Group & g : m_groups)
 		{
-			glm::vec3 min = positions[g.startIndex];
-			glm::vec3 max = positions[g.startIndex];
-			//calculate bounding box for each group and safe it in the struct ->accessible in ModelRenderer
+			vec3 min = m_vertices[m_indices[g.startIndex]].position;
+			vec3 max = m_vertices[m_indices[g.startIndex]].position;
 			for (int i = g.startIndex; i < g.endIndex; i++)
 			{
-				min.x = std::min(min.x, positions[i].x);
-				min.y = std::min(min.y, positions[i].y);
-				min.z = std::min(min.z, positions[i].z);
-
-				max.x = std::max(max.x, positions[i].x);
-				max.y = std::max(max.y, positions[i].y);
-				max.y = std::max(max.z, positions[i].z);
+				min.x = std::min(min.x, m_vertices[m_indices[i]].position.x);
+				min.y = std::min(min.y, m_vertices[m_indices[i]].position.y);
+				min.z = std::min(min.z, m_vertices[m_indices[i]].position.z);
+				max.x = std::max(max.x, m_vertices[m_indices[i]].position.x);
+				max.y = std::max(max.y, m_vertices[m_indices[i]].position.y);
+				max.y = std::max(max.z, m_vertices[m_indices[i]].position.z);
 			}
-			//vector from center of global bounding box to local bounding box ->explosion direction
-			g.center =  normalize((max + min) / 2.0f);
+			g.center = normalize((min + max) * 0.5f);
 		}
 		return true;
 	}

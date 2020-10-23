@@ -5,6 +5,7 @@
 uniform mat4 modelViewProjectionMatrix;
 uniform int explosion_factor;
 
+uniform vec3 group_center;
 in vec3 position;
 in vec3 normal;
 in vec2 texCoord;
@@ -19,9 +20,10 @@ out vertexData
 void main()
 {
 	//add new offset vector ->  explosion animation
-	vec4 pos = modelViewProjectionMatrix*vec4(position,1.0);
+	vec3 pos_offset = position + explosion_factor * group_center;
+	vec4 pos = modelViewProjectionMatrix*vec4(pos_offset,1.0);
 
-	vertex.position = position; 
+	vertex.position = pos_offset; 
 	vertex.normal = normal;
 	vertex.texCoord = texCoord;	
 	

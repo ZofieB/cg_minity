@@ -213,6 +213,9 @@ void ModelRenderer::display()
 		if (groupEnabled.at(i))
 		{
 			const Material & material = materials.at(groups.at(i).materialIndex);
+			const Group& group = groups.at(i);
+
+			shaderProgramModelBase->setUniform("group_center", group.center);
 
 			//pass material properties to shader for phong illumintation
 			shaderProgramModelBase->setUniform("kd", material.diffuse);
