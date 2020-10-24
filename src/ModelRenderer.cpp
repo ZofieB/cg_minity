@@ -164,7 +164,7 @@ void ModelRenderer::display()
 		}
 
 		ImGui::Text("Assignment 3");
-		ImGui::SliderInt("Explosion factor", &m_explosion, 0, 100);
+		ImGui::SliderInt("Explosion factor", &viewer()->m_explosion, 0, 100);
 
 		ImGui::End();
 	}
@@ -192,7 +192,7 @@ void ModelRenderer::display()
 	shaderProgramModelBase->setUniform("a", amplitude);
 
 	//exploded view
-	shaderProgramModelBase->setUniform("explosion_factor", m_explosion);
+	shaderProgramModelBase->setUniform("explosion_factor", viewer()->m_explosion);
 
 	//boolean flags for textures, bump maps and GUI control
 	shaderProgramModelBase->setUniform("diffuseTextureEnabled", diff_tex);

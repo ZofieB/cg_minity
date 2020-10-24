@@ -22,6 +22,7 @@ namespace minity
 		~Viewer();
 
 		void display();
+		int m_explosion = 0;
 
 		GLFWwindow * window();
 		Scene* scene();

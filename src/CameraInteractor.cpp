@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <vector>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -119,6 +120,43 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 	else if (key == GLFW_KEY_H && action == GLFW_RELEASE)
 	{
 		m_headlight = !m_headlight;
+	}
+	else if (key == GLFW_KEY_A && action == GLFW_RELEASE)
+	{
+		//add keyframe
+		if (keyframes.size() >= 4)
+		{
+			std::cout << "error: maximum number of keyframes reached!\ndelete the last frame to create a new one!\n";
+		}
+		else
+		{
+			Keyframe kf;
+			kf.backgroundColor = viewer()->backgroundColor();
+			kf.explosionFactor = viewer()->m_explosion;
+			kf.lightTransform = viewer()->lightTransform();
+			kf.viewTransform = viewer()->viewTransform();
+			keyframes.push_back(kf);
+			std::cout << "Keyframe " << keyframes.size()<< " added\n";
+		}
+
+	}
+	else if (key == GLFW_KEY_R && action == GLFW_RELEASE)
+	{
+		//remove keyframe
+		keyframes.pop_back();
+		std::cout << "Keyframe " << keyframes.size() + 1 << " removed\n";
+	}
+	else if (key == GLFW_KEY_P && action == GLFW_RELEASE)
+	{
+		//play animation
+		if (keyframes.size() == 4)
+		{
+			//execute animation
+		}
+		else
+		{
+			std::cout << "error: not enough keyframes added\n";
+		}
 	}
 }
 
@@ -319,4 +357,72 @@ vec3 CameraInteractor::arcballVector(double x, double y)
 		p = normalize(p);
 
 	return p;
+}
+
+float CameraInteractor::cubicBezierScalar(std::vector<float> control_points, float u)
+{
+	return pow((1 - u), 3) * control_points.at(0) + 3 * u * pow((1 - u), 2) * control_points.at(1) + 3 * pow(u, 2) * (1 - u) * control_points.at(2) + pow(u, 3) * control_points.at(3);
+}
+
+vec3 CameraInteractor::cubicBezierVector(std::vector<vec3> control_points, float u)
+{
+	return pow((1 - u), 3) * control_points.at(0) + 3 * u * pow((1 - u), 2) * control_points.at(1) + 3 * pow(u, 2) * (1 - u) * control_points.at(2) + pow(u, 3) * control_points.at(3);
+}
+
+
+mat4 CameraInteractor::cubicBezierMatrix(std::vector<mat4> control_points, float u)
+{
+	std::vector<vec3> translations;
+	std::vector<vec3> scalars;
+	std::vector<quat> rotations;
+	for (int i = 0; i < control_points.size(); i++)
+	{
+		translations.push_back(extractTranslation(control_points.at(i)));
+		scalars.push_back(extractScale(control_points.at(i)));
+		rotations.push_back(quat_cast(control_points.at(i)));
+	}
+	vec3 translation = cubicBezierVector(translations, u);
+	vec3 scale = cubicBezierVector(scalars, u);
+	quat rotation = quaternionCubicSLERP(rotations, u);
+
+	mat4 rotation_mat = mat4_cast(rotation);
+	mat4 translation_mat = mat4(vec4(0.0f), vec4(0.0f), vec4(0.0f), vec4(translation, 1.0f));
+	mat4 scaling_mat = mat4(0.0f);
+	scaling_mat[0][0] = scale.x;
+	scaling_mat[1][1] = scale.y;
+	scaling_mat[2][2] = scale.z;
+	scaling_mat[3][3] = 1.0f;
+
+	return scaling_mat * rotation_mat * translation_mat;
+}
+
+vec3 CameraInteractor::extractTranslation(mat4&  matrix)
+{
+	vec3 translation = matrix[3];
+	matrix[3] = vec4(vec3(0.0f), 1.0f);
+	return translation;
+}
+
+vec3 CameraInteractor::extractScale(mat4& matrix)
+{
+	float sx = length(matrix[0]);
+	float sy = length(matrix[1]);
+	float sz = length(matrix[2]);
+
+	matrix[0] = matrix[0] * (1 / sx);
+	matrix[1] = matrix[1] * (1 / sy);
+	matrix[2] = matrix[2] * (1 / sz);
+
+	return vec3(sx, sy, sz);
+}
+
+quat CameraInteractor::quaternionCubicSLERP(std::vector<quat> quaternions, float u)
+{
+	quat q1 = mix(quaternions[0], quaternions[1], u);
+	quat q2 = mix(quaternions[1], quaternions[2], u);
+	quat q3 = mix(quaternions[2], quaternions[3], u);
+
+	q1 = mix(q1, q1, u);
+	q2 = mix(q2, q3, u);
+	return mix(q1, q2, u);
 }
