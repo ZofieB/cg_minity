@@ -3,6 +3,9 @@
 #include <iostream>
 #include <algorithm>
 #include <vector>
+#include <time.h>
+#include <chrono>
+#include <thread>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -22,6 +25,7 @@
 #include <glm/gtx/string_cast.hpp>
 
 #include "Viewer.h"
+#include "ModelRenderer.h"
 
 using namespace minity;
 using namespace glm;
@@ -143,20 +147,50 @@ void CameraInteractor::keyEvent(int key, int scancode, int action, int mods)
 	else if (key == GLFW_KEY_R && action == GLFW_RELEASE)
 	{
 		//remove keyframe
-		keyframes.pop_back();
-		std::cout << "Keyframe " << keyframes.size() + 1 << " removed\n";
-	}
-	else if (key == GLFW_KEY_P && action == GLFW_RELEASE)
-	{
-		//play animation
-		if (keyframes.size() == 4)
+		if (keyframes.size() > 0)
 		{
-			//execute animation
+			keyframes.pop_back();
+			std::cout << "Keyframe " << keyframes.size() + 1 << " removed\n";
 		}
 		else
 		{
-			std::cout << "error: not enough keyframes added\n";
+			std::cout << "error: no keyframes present\n";
 		}
+	}
+	else if (key == GLFW_KEY_P && action == GLFW_RELEASE)
+	{
+		playAnimation();
+	}
+}
+
+void CameraInteractor::playAnimation()
+{
+	//play animation
+	if (keyframes.size() == 4)
+	{
+		std::vector<vec3> background_colors = { keyframes.at(0).backgroundColor, keyframes.at(1).backgroundColor, keyframes.at(2).backgroundColor, keyframes.at(3).backgroundColor };
+		std::vector<float> explosion_factors = { keyframes.at(0).explosionFactor, keyframes.at(1).explosionFactor, keyframes.at(2).explosionFactor, keyframes.at(3).explosionFactor };
+		std::vector<mat4> view_matrices = { keyframes.at(0).viewTransform, keyframes.at(1).viewTransform, keyframes.at(2).viewTransform, keyframes.at(3).viewTransform };
+		std::vector<mat4> light_matrices = { keyframes.at(0).lightTransform, keyframes.at(1).lightTransform, keyframes.at(2).lightTransform, keyframes.at(3).lightTransform };
+
+		unsigned long start_time = std::chrono::system_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
+		unsigned long current_time = start_time;
+		unsigned long end_time = start_time + 4000;
+		while (current_time < end_time)
+		{
+			float idx = (current_time - start_time) / 4000.0f;
+			viewer()->setBackgroundColor(cubicBezierVector(background_colors, idx));
+			viewer()->m_explosion = cubicBezierScalar(explosion_factors, idx);
+			viewer()->setViewTransform(cubicBezierMatrix(view_matrices, idx));
+			viewer()->setLightTransform(cubicBezierMatrix(light_matrices, idx));
+			viewer()->display();
+			glfwSwapBuffers(viewer()->window());
+			current_time = std::chrono::system_clock::now().time_since_epoch() / std::chrono::milliseconds(1);
+		}
+	}
+	else
+	{
+		std::cout << "error: not enough keyframes added\n";
 	}
 }
 
@@ -372,28 +406,35 @@ vec3 CameraInteractor::cubicBezierVector(std::vector<vec3> control_points, float
 
 mat4 CameraInteractor::cubicBezierMatrix(std::vector<mat4> control_points, float u)
 {
-	std::vector<vec3> translations;
-	std::vector<vec3> scalars;
-	std::vector<quat> rotations;
-	for (int i = 0; i < control_points.size(); i++)
+	if (control_points.at(0) == control_points.at(1) && control_points.at(1) == control_points.at(2) && control_points.at(2) == control_points.at(3))
 	{
-		translations.push_back(extractTranslation(control_points.at(i)));
-		scalars.push_back(extractScale(control_points.at(i)));
-		rotations.push_back(quat_cast(control_points.at(i)));
+		return control_points.at(0);
 	}
-	vec3 translation = cubicBezierVector(translations, u);
-	vec3 scale = cubicBezierVector(scalars, u);
-	quat rotation = quaternionCubicSLERP(rotations, u);
+	else
+	{
+		std::vector<vec3> translations;
+		std::vector<vec3> scalars;
+		std::vector<quat> rotations;
+		for (int i = 0; i < control_points.size(); i++)
+		{
+			translations.push_back(extractTranslation(control_points.at(i)));
+			scalars.push_back(extractScale(control_points.at(i)));
+			rotations.push_back(quat_cast(control_points.at(i)));
+		}
+		vec3 translation = cubicBezierVector(translations, u);
+		vec3 scale = cubicBezierVector(scalars, u);
+		quat rotation = quaternionCubicSLERP(rotations, u);
 
-	mat4 rotation_mat = mat4_cast(rotation);
-	mat4 translation_mat = mat4(vec4(0.0f), vec4(0.0f), vec4(0.0f), vec4(translation, 1.0f));
-	mat4 scaling_mat = mat4(0.0f);
-	scaling_mat[0][0] = scale.x;
-	scaling_mat[1][1] = scale.y;
-	scaling_mat[2][2] = scale.z;
-	scaling_mat[3][3] = 1.0f;
+		mat4 rotation_mat = mat4_cast(rotation);
+		mat4 translation_mat = mat4(vec4(1.0f, 0.0f, 0.0f, 0.0f), vec4(0.0f, 1.0f, 0.0f, 0.0f), vec4(0.0f, 0.0f, 1.0f, 0.0f), vec4(translation, 1.0f));
+		mat4 scaling_mat = mat4(0.0f);
+		scaling_mat[0][0] = scale.x;
+		scaling_mat[1][1] = scale.y;
+		scaling_mat[2][2] = scale.z;
+		scaling_mat[3][3] = 1.0f;
 
-	return scaling_mat * rotation_mat * translation_mat;
+		return translation_mat * rotation_mat * scaling_mat;
+	}
 }
 
 vec3 CameraInteractor::extractTranslation(mat4&  matrix)
@@ -405,13 +446,16 @@ vec3 CameraInteractor::extractTranslation(mat4&  matrix)
 
 vec3 CameraInteractor::extractScale(mat4& matrix)
 {
-	float sx = length(matrix[0]);
-	float sy = length(matrix[1]);
-	float sz = length(matrix[2]);
+	vec3 x = matrix[0];
+	vec3 y = matrix[1];
+	vec3 z = matrix[2];
+	float sx = length(x);
+	float sy = length(y);
+	float sz = length(z);
 
-	matrix[0] = matrix[0] * (1 / sx);
-	matrix[1] = matrix[1] * (1 / sy);
-	matrix[2] = matrix[2] * (1 / sz);
+	matrix[0] = vec4((x * (1 / sx)), 0.0f);
+	matrix[1] = vec4((y * (1 / sy)), 0.0f);
+	matrix[2] = vec4((z * (1 / sz)), 0.0f);
 
 	return vec3(sx, sy, sz);
 }
@@ -422,7 +466,7 @@ quat CameraInteractor::quaternionCubicSLERP(std::vector<quat> quaternions, float
 	quat q2 = mix(quaternions[1], quaternions[2], u);
 	quat q3 = mix(quaternions[2], quaternions[3], u);
 
-	q1 = mix(q1, q1, u);
-	q2 = mix(q2, q3, u);
-	return mix(q1, q2, u);
+	quat q4 = mix(q1, q1, u);
+	quat q5 = mix(q2, q3, u);
+	return mix(q4, q5, u);
 }

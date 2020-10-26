@@ -164,7 +164,7 @@ void ModelRenderer::display()
 		}
 
 		ImGui::Text("Assignment 3");
-		ImGui::SliderInt("Explosion factor", &viewer()->m_explosion, 0, 100);
+		ImGui::SliderFloat("Explosion factor", &viewer()->m_explosion, 0.0f, 50.0f);
 
 		ImGui::End();
 	}

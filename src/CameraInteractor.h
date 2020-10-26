@@ -8,7 +8,7 @@ namespace minity
 	struct Keyframe
 	{
 		glm::vec3 backgroundColor;
-		int explosionFactor = 0;
+		float explosionFactor = 0;
 		glm::mat4 lightTransform;
 		glm::mat4 viewTransform;
 	};
@@ -39,6 +39,8 @@ namespace minity
 		glm::vec3 extractTranslation(glm::mat4& matrix);
 		glm::vec3 extractScale(glm::mat4& matrix);
 		glm::quat quaternionCubicSLERP(std::vector<glm::quat> quaternions, float u);
+
+		void playAnimation();
 
 		float m_fov = glm::radians(60.0f);
 		float m_near = 0.125f;

@@ -3,7 +3,7 @@
 #include "/model-globals.glsl"
 
 uniform mat4 modelViewProjectionMatrix;
-uniform int explosion_factor;
+uniform float explosion_factor;
 
 uniform vec3 group_center;
 in vec3 position;
