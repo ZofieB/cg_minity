@@ -8,7 +8,7 @@ uniform mat4 inverseModelViewProjectionMatrix;
 in vec2 fragPosition;
 out vec4 fragColor;
 
-float calcDepth(vec3 pos)
+float calcDepth(vec3 pos) //pass world space position -> returns depth value
 {
 	float far = gl_DepthRange.far; 
 	float near = gl_DepthRange.near;
@@ -20,7 +20,7 @@ float calcDepth(vec3 pos)
 void main()
 {
 	vec4 near = inverseModelViewProjectionMatrix*vec4(fragPosition,-1.0,1.0);
-	near /= near.w;
+	near /= near.w;	//perspective divide
 
 	vec4 far = inverseModelViewProjectionMatrix*vec4(fragPosition,1.0,1.0);
 	far /= far.w;
