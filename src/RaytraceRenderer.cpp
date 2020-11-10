@@ -44,6 +44,15 @@ void RaytraceRenderer::display()
 	// retrieve/compute all necessary matrices and related properties
 	const mat4 modelViewProjectionMatrix = viewer()->modelViewProjectionTransform();
 	const mat4 inverseModelViewProjectionMatrix = inverse(modelViewProjectionMatrix);
+	const mat4 modelViewMatrix = viewer()->modelViewTransform();
+	const mat4 inverseModelViewMatrix = inverse(modelViewMatrix);
+	const mat4 modelLightMatrix = viewer()->modelLightTransform();
+	const mat4 inverseModelLightMatrix = inverse(modelLightMatrix);
+
+	vec4 worldLightPosition = inverseModelLightMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	vec4 worldCameraPosition = inverseModelViewMatrix * vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+	float currentTime = (float)glfwGetTime();
 
 	auto shaderProgramRaytrace = shaderProgram("raytrace");
 
@@ -52,6 +61,9 @@ void RaytraceRenderer::display()
 
 	shaderProgramRaytrace->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	shaderProgramRaytrace->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
+	shaderProgramRaytrace->setUniform("worldCameraPosition", vec3(worldCameraPosition));
+	shaderProgramRaytrace->setUniform("worldLightPosition", vec3(worldLightPosition));
+	shaderProgramRaytrace->setUniform("currentTime", currentTime);
 
 	m_quadArray->bind();
 	shaderProgramRaytrace->use();

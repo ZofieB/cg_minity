@@ -76,11 +76,13 @@ void ModelRenderer::display()
 	static bool wireframeEnabled = false;
 	static bool lightSourceEnabled = true;
 	static vec4 wireframeLineColor = vec4(1.0f);
+	static bool modelEnabled = true;
 
 	if (ImGui::BeginMenu("Model"))
 	{
 		ImGui::Checkbox("Wireframe Enabled", &wireframeEnabled);
 		ImGui::Checkbox("Light Source Enabled", &lightSourceEnabled);
+		ImGui::Checkbox("Model Enabled", &modelEnabled);
 
 		if (wireframeEnabled)
 		{
@@ -258,7 +260,10 @@ void ModelRenderer::display()
 				material.tangentSpaceNormalTexture->bindActive(4);
 			}
 
-			viewer()->scene()->model()->vertexArray().drawElements(GL_TRIANGLES, groups.at(i).count(), GL_UNSIGNED_INT, (void*)(sizeof(GLuint)*groups.at(i).startIndex));
+			if (modelEnabled)
+			{
+				viewer()->scene()->model()->vertexArray().drawElements(GL_TRIANGLES, groups.at(i).count(), GL_UNSIGNED_INT, (void*)(sizeof(GLuint) * groups.at(i).startIndex));
+			}
 
 			if (material.tangentSpaceNormalTexture)
 			{
