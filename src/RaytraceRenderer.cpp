@@ -8,6 +8,7 @@
 #include "Scene.h"
 #include "Model.h"
 #include <sstream>
+#include <limits>
 
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -64,6 +65,7 @@ void RaytraceRenderer::display()
 	shaderProgramRaytrace->setUniform("worldCameraPosition", vec3(worldCameraPosition));
 	shaderProgramRaytrace->setUniform("worldLightPosition", vec3(worldLightPosition));
 	shaderProgramRaytrace->setUniform("currentTime", currentTime);
+	shaderProgramRaytrace->setUniform("maxFloat", std::numeric_limits<float>::max());
 
 	m_quadArray->bind();
 	shaderProgramRaytrace->use();

@@ -8,49 +8,107 @@ uniform mat4 inverseModelViewProjectionMatrix;
 uniform vec3 worldLightPosition;
 
 uniform float currentTime;
+uniform float maxFloat;
 
 in vec2 fragPosition;
 out vec4 fragColor;
 
-//intersection tests
-
+//spline function for trajectories
+vec3 cubicBezierVector(vec3 cp0, vec3 cp1, vec3 cp2, vec3 cp3, float u)
+{
+	return pow((1 - u), 3) * cp0 + 3 * u * pow((1 - u), 2) * cp1 + 3 * pow(u, 2) * (1 - u) * cp2 + pow(u, 3) * cp3;
+}
+//Structs to define the scene
+struct Box 
+{
+	vec3 bmin;
+	vec3 bmax;
+	mat4 transformation;
+	vec3 ka;
+	vec3 kd;
+	vec3 ks;
+	int shininess;
+};
+struct Sphere 
+{
+	vec3 center;
+	float radius;
+	vec3 ka;
+	vec3 kd;
+	vec3 ks;
+	int shininess;
+};
+struct Plane 
+{
+	vec3 normal;
+	vec3 point;
+	vec3 ka;
+	vec3 kd;
+	vec3 ks;
+	int shininess;
+};
+struct Cylinder 
+{
+	float radius;
+	float height;
+	mat4 transformation;
+	vec3 ka;
+	vec3 kd;
+	vec3 ks;
+	int shininess;
+};
 struct Scene
 {
-	vec3 something;
+	Box box;
+	Sphere sphere;
+	//Plane plane;
+	Cylinder cylinder;
 };
-//sphere
-struct Sphere
+
+//Intersection structs
+struct Intersection
+{
+	bool hit;
+	float tMin;
+	vec3 normal;
+	vec4 color;
+};
+struct SphereIntersection
 {
 	bool hit;
 	vec3 near;
 	vec3 far;
 	vec3 normal;
+	float t_near;
 };
 
-struct Box
+struct BoxIntersection
 {
 	bool hit;
 	vec3 near;
 	vec3 far;
+	float t_near;
+	//vec3 normal_near;
 };
 
-struct Plane
+struct PlaneIntersection
 {
 	bool hit;
 	vec3 pos; //hit point
-	vec3 normal;
+	float t_near;
 };
 
-struct Cylinder
+struct CylinderIntersection
 {
 	bool hit;
 	vec3 near;
 	vec3 far;
 	vec3 normal_near;
 	vec3 normal_far;
+	float t_near;
 };
 
-Sphere calcSphereIntersection(float r, vec3 rayOrigin, vec3 center, vec3 rayDirection)
+SphereIntersection calcSphereIntersection(float r, vec3 rayOrigin, vec3 center, vec3 rayDirection)
 {
 	vec3 oc = rayOrigin - center;
 	vec3 dir = normalize(rayDirection);
@@ -64,17 +122,17 @@ Sphere calcSphereIntersection(float r, vec3 rayOrigin, vec3 center, vec3 rayDire
 		vec3 far = rayOrigin + max(da, ds) * dir;
 		vec3 normal = (near - center);
 
-		return Sphere(true, near, far, normal);
+		return SphereIntersection(true, near, far, normal, min(da,ds));
 	}
 	else
 	{
-		return Sphere(false, vec3(0), vec3(0), vec3(0));
+		return SphereIntersection(false, vec3(0), vec3(0), vec3(0), 0);
 	}
 
 }
 //box -> non-oriented
 //oriented: rotate box OR rotate ray -> include transformtion matrix and transform raydirection and rayorigin by inverse transformation
-Box calcBoxIntersection(vec3 rayOrigin, vec3 rayDirection, vec3 boxMin, vec3 boxMax, mat4 transformation)
+BoxIntersection calcBoxIntersection(vec3 rayOrigin, vec3 rayDirection, vec3 boxMin, vec3 boxMax, mat4 transformation)
 {
 	rayOrigin = vec3(inverse(transformation) * vec4(rayOrigin, 1.0));
 	rayDirection = vec3(inverse(transformation) * vec4(rayDirection, 1.0));
@@ -86,36 +144,36 @@ Box calcBoxIntersection(vec3 rayOrigin, vec3 rayDirection, vec3 boxMin, vec3 box
 	float tFar = min(min(t2.x, t2.y), t2.z);
 	if(tNear > tFar)
 	{
-		return Box(false, vec3(0), vec3(0));
+		return BoxIntersection(false, vec3(0), vec3(0), 0);
 	}
 	else
 	{
-		return Box(true, vec3(transformation * vec4(rayOrigin + tNear * rayDirection, 1.0)), vec3(transformation * vec4(rayOrigin + tFar * rayOrigin, 1.0)));
+		return BoxIntersection(true, vec3(transformation * vec4(rayOrigin + tNear * rayDirection, 1.0)), vec3(transformation * vec4(rayOrigin + tFar * rayOrigin, 1.0)), tNear);
 	}
 	//to get 3D position: rayOrigin + {tNear, tFar} * rayDirection
 }
 //plane equation : n * (q - p) = 0
-Plane calcPlaneIntersection(vec3 rayOrigin, vec3 rayDirection, vec3 n, vec3 p)
+PlaneIntersection calcPlaneIntersection(vec3 rayOrigin, vec3 rayDirection, vec3 n, vec3 p)
 {
 	vec3 normal = normalize(n);
 	float counter = dot(n, (p - rayOrigin));
 	float numerator = dot(n, rayDirection);
 	if (numerator == 0)
 	{
-		return Plane(false, vec3(0.0), vec3(0.0));
+		return PlaneIntersection(false, vec3(0.0), 0);
 	}
 	float s =  counter / numerator;
 	if (s < 0)
 	{
-		return Plane(false, vec3(0.0), vec3(0.0));
+		return PlaneIntersection(false, vec3(0.0), 0);
 	}
 	else
 	{
-		return Plane(true, rayOrigin + s * rayDirection, normal);
+		return PlaneIntersection(true, rayOrigin + s * rayDirection, s);
 	}
 }
 //cylinder
-Cylinder calcCylinderIntersection(vec3 rayOrigin, vec3 rayDirection, float radius, float height)
+CylinderIntersection calcCylinderIntersection(vec3 rayOrigin, vec3 rayDirection, float radius, float height)
 {
 	//y-axis aligned cylinder
 	float a = rayDirection.x * rayDirection.x + rayDirection.z * rayDirection.z;
@@ -130,12 +188,12 @@ Cylinder calcCylinderIntersection(vec3 rayOrigin, vec3 rayDirection, float radiu
 		t1 = t1 / (2 * a);
 		float t2 = -b - sqrt(b*b - 4*a*c);
 		t2 = t2 / (2 * a);
-		Plane p1 = calcPlaneIntersection(rayOrigin, rayDirection, vec3(0.0, 1.0, 0.0), vec3(0.0, 0.0, 0.0));
-		Plane p2 = calcPlaneIntersection(rayOrigin, rayDirection, vec3(0.0, 1.0, 0.0), vec3(0.0, height, 0.0));
+		PlaneIntersection p1 = calcPlaneIntersection(rayOrigin, rayDirection, vec3(0.0, 1.0, 0.0), vec3(0.0, 0.0, 0.0));
+		PlaneIntersection p2 = calcPlaneIntersection(rayOrigin, rayDirection, vec3(0.0, 1.0, 0.0), vec3(0.0, height, 0.0));
 		if (max(t1, t2) < 0)
 		{
 			//both scalars are negative -> no intersection
-			return Cylinder(false, vec3(0.0f), vec3(0.0f), vec3(0.0f), vec3(0.0f));
+			return CylinderIntersection(false, vec3(0.0f), vec3(0.0f), vec3(0.0f), vec3(0.0f), 0);
 		}
 		vec3 near = rayOrigin + min(t1, t2) * rayDirection;
 		vec3 far = rayOrigin + max(t1, t2) * rayDirection;
@@ -146,24 +204,24 @@ Cylinder calcCylinderIntersection(vec3 rayOrigin, vec3 rayDirection, float radiu
 		//intersection with upper boundary
 			
 			float t3 = (height - rayOrigin.y) / rayDirection.y;
-			return Cylinder(true, rayOrigin + t3 * rayDirection, near, vec3(0.0, 1.0, 0.0), normal_near);
+			return CylinderIntersection(true, rayOrigin + t3 * rayDirection, near, vec3(0.0, 1.0, 0.0), normal_near, t3);
 		}
 		if (near.y < 0 && 0 < far.y)
 		{
 		//intersection with lower boundary
 			float t3 = (0 - rayOrigin.y) / rayDirection.y;
-			return Cylinder(true, rayOrigin + t3 * rayDirection, near, vec3(0.0, 1.0, 0.0), normal_near);
+			return CylinderIntersection(true, rayOrigin + t3 * rayDirection, near, vec3(0.0, 1.0, 0.0), normal_near, t3);
 		}
 		//calc upper and lower boundary
 		if (near.y < 0 || near.y > height)
 		{
-			return Cylinder(false, near, far, normal_near, normal_far);
+			return CylinderIntersection(false, near, far, normal_near, normal_far, 0);
 		}
-		return Cylinder(true, near, far, normal_near, normal_far);
+		return CylinderIntersection(true, near, far, normal_near, normal_far, min(t1,t2));
 	}
 	else
 	{
-		return Cylinder(false, vec3(0.0f), vec3(0.0f), vec3(0.0f), vec3(0.0f));
+		return CylinderIntersection(false, vec3(0.0f), vec3(0.0f), vec3(0.0f), vec3(0.0f), 0);
 	}
 	//check for boundary planes
 }
@@ -178,7 +236,7 @@ float calcDepth(vec3 pos) //pass world space position -> returns depth value for
 	return (((far - near) * ndc_depth) + near + far) / 2.0;
 }
 
-float phongIllumination(vec3 position, vec3 rayOrigin, vec3 normal, float ka, float kd, float ks, float shininess)
+float phongIllumination(vec3 position, vec3 rayOrigin, vec3 normal, vec3 ka, vec3 kd, vec3 ks, int shininess)
 {
 	//direction vector from intersection point to light source
 	vec3 light = normalize( worldLightPosition - position );
@@ -193,9 +251,39 @@ float phongIllumination(vec3 position, vec3 rayOrigin, vec3 normal, float ka, fl
 	//calculate illumination
 	return vec4( (ka * vec3(0.5, 0.5, 0.5) + kd * dot(light, normal) + ks * pow( specular, shininess) ), 1.0f);
 }
-vec3 closestIntersection(Scene scene)
+Intersection closestIntersection(Scene scene, vec3 rayOrigin, vec3 rayDirection)
 {
-	return scene.something;
+	//calculate intersections
+	BoxIntersection b = calcBoxIntersection(rayOrigin, rayDirection, scene.box.bmin, scene.box.bmax, scene.box.transformation);
+	SphereIntersection s = calcSphereIntersection(scene.sphere.radius, rayOrigin, scene.sphere.center, rayDirection);
+	CylinderIntersection c = calcCylinderIntersection(rayOrigin, rayDirection, scene.cylinder.radius, scene.cylinder.height);
+	//find closest intersection -> minimal t_near value, if there is one
+	float tMin = maxFloat;
+	vec3 normal;
+	vec4 color;
+	if(! (b.hit || s.hit || c.hit))
+	{
+		//no intersection
+		return Intersection(false, tMin, normal, color);
+	}
+	if (b.hit && b.t_near < tMin)
+	{
+		tMin = b.t_near;
+		color = vec4(1.0f, 0.0f, 1.0f, 1.0f);
+	}
+	if (s.hit && s.t_near < tMin)
+	{
+		tMin = s.t_near;
+		normal = s.normal;
+		color = vec4(1.0f, 1.0f, 0.0f, 1.0f);
+	}
+	if (c.hit && c.t_near < tMin)
+	{
+		tMin = c.t_near;
+		normal = c.normal_near;
+		color = vec4(0.0f, 1.0f, 1.0f, 1.0f);
+	}
+	return Intersection(true, tMin, normal, color);
 }
 
 void main()
@@ -210,7 +298,6 @@ void main()
 	vec3 rayOrigin = near.xyz;
 	vec3 rayDirection = normalize((far-near).xyz);
 
-	Scene scene;
 	int max_bounces = 4;
 
 	/*
@@ -235,16 +322,10 @@ void main()
 	}
 	*/
 
-	vec3 spherePos = vec3(0.0f);
+	float idx = (sin(0.5 * currentTime) + 1) / 2.0f;
+	vec3 spherePos = cubicBezierVector(vec3(0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 0.0f), vec3 (0.0f), idx);
 	vec3 boxPos = vec3(0.0f);
-	vec3 planePos = vec3(0.0f);
-	vec3 planeNormal = vec3(0.0, 1.0, 0.0);
-	//radius * cos/sin for circular path
-	spherePos.x = 1.0 * cos(currentTime);
-	spherePos.z = 1.0 * sin(currentTime);
-
-	boxPos.x = 1.0 * cos(currentTime);
-	boxPos.y = 1.0 * sin(currentTime);
+	vec3 cylinderPos = cubicBezierVector(vec3(-1.0f), vec3(-1.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, -1.0f), vec3 (-1.0f), idx);
 
 	mat4 boxTransformation = mat4(1.0f);
 	boxTransformation[0][0] = cos(radians(45));
@@ -252,45 +333,25 @@ void main()
 	boxTransformation[1][0] = - sin(radians(45));
 	boxTransformation[0][1] = sin(radians(45));
 
-	Box b = calcBoxIntersection(rayOrigin, rayDirection, boxPos, boxPos + vec3(0.5, 0.5, 0.5), boxTransformation);
+	vec3 ka_mtl = vec3(0.0f);
+	vec3 kd_mtl = vec3(0.7f);
+	vec3 ks_mtl = vec3(0.2f);
+	int shininess = 50;
 
-	Sphere s = calcSphereIntersection(0.5, rayOrigin, spherePos, rayDirection);
+	Box box = Box(cylinderPos, cylinderPos + 0.5, boxTransformation, ka_mtl, kd_mtl, ks_mtl, shininess);
+	Sphere sphere = Sphere(spherePos, 0.5, ka_mtl, kd_mtl, ks_mtl, shininess);
+	Plane plane = Plane(vec3(0.0f, 1.0f, 0.0f), vec3(-1.0f, -1.0f, -1.0f), ka_mtl, kd_mtl, ks_mtl, shininess);
+	Cylinder cylinder = Cylinder(0.4, 0.7, boxTransformation, ka_mtl, kd_mtl, ks_mtl, shininess);
 
-	Plane p = calcPlaneIntersection(rayOrigin, rayDirection, planeNormal , planePos);
+	Scene scene = Scene(box, sphere, cylinder);
+	Intersection sec = closestIntersection(scene, rayOrigin, rayDirection);
 
-	Cylinder c = calcCylinderIntersection(rayOrigin, rayDirection, 0.25, 0.5);
-	fragColor = vec4(vec3(0.0f), 1.0f);
-	float boxDepth = -1.0f;
-	if(c.hit)
+	if(sec.hit)
 	{
-		fragColor+= vec4(0.0f, 1.0f, 1.0f, 1.0f);
-		gl_FragDepth = calcDepth(c.near);
+		fragColor = sec.color;
+		gl_FragDepth = calcDepth(rayOrigin + sec.tMin * rayDirection);
 		return;
 	}
-	/*
-	if(p.hit)
-	{
-		fragColor+= vec4(0.0f, 1.0f, 1.0f, 1.0f);
-		gl_FragDepth = calcDepth(p.pos);
-		return;
-	}
-	if(b.hit)
-	{
-		fragColor += vec4(0.0f, 1.0f, 0.0f, 1.0f);
-		boxDepth = calcDepth(b.near);
-		gl_FragDepth = boxDepth;
-		return;
-	}*/
-
-	/*if(s.hit)
-	{
-		float intensity = dot(-rayDirection, s.normal); //simple model: assume light at camera position
-		fragColor = vec4(intensity, 0.0, 0.0, 1.0);
-		float sphereDepth = calcDepth(s.near);
-		gl_FragDepth = max(boxDepth, sphereDepth);
-	}*/
-	//fragColor = vec4(1.0);
-
 	/*where to go now:
 		1. scene representation: encapsulate scene in some kind of function -> can be static setup or user interface
 			-> go through primitives to find e.g. first intersection point
@@ -306,11 +367,6 @@ void main()
 	// using calcDepth, you can convert a ray position to an OpenGL z-value, so that intersections/occlusions with the
 	// model geometry are handled correctly, e.g.: gl_FragDepth = calcDepth(nearestHit);
 	// in case there is no intersection, you should get gl_FragDepth to 1.0, i.e., the output of the shader will be ignored
-
+	fragColor = vec4(1.0);
 	gl_FragDepth = 1.0; //-> visibility and intersection
-
-	/*questions:
-	for basic illumination in raytracing: light source attributes ia, id, is neccessary?
-	no need to take models into account -> what values for ka kd and ks?
-	*/
 }
