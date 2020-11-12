@@ -72,6 +72,10 @@ struct Intersection
 	float tMin;
 	vec3 normal;
 	vec4 color;
+	vec3 ka;
+	vec3 kd;
+	vec3 ks;
+	int shininess;
 };
 struct SphereIntersection
 {
@@ -87,8 +91,9 @@ struct BoxIntersection
 	bool hit;
 	vec3 near;
 	vec3 far;
+	vec3 normal_near;
+	vec3 normal_far;
 	float t_near;
-	//vec3 normal_near;
 };
 
 struct PlaneIntersection
@@ -144,11 +149,18 @@ BoxIntersection calcBoxIntersection(vec3 rayOrigin, vec3 rayDirection, vec3 boxM
 	float tFar = min(min(t2.x, t2.y), t2.z);
 	if(tNear > tFar)
 	{
-		return BoxIntersection(false, vec3(0), vec3(0), 0);
+		return BoxIntersection(false, vec3(0), vec3(0), vec3(0), vec3(0), 0);
 	}
 	else
 	{
-		return BoxIntersection(true, vec3(transformation * vec4(rayOrigin + tNear * rayDirection, 1.0)), vec3(transformation * vec4(rayOrigin + tFar * rayOrigin, 1.0)), tNear);
+		vec3 center =  (boxMin + boxMax) * 0.5;
+		vec3 tmp =  (rayOrigin + tNear * rayDirection) - center;
+		vec3 d = (boxMin - boxMax) * 0.5;
+		float bias = 1.0001;
+		vec3 normal_near = normalize( vec3(int((tmp.x / abs(d.x)) * bias), int((tmp.y / abs(d.y)) * bias), int((tmp.z / abs(d.z)) * bias)) );
+		tmp = (rayOrigin + tFar * rayOrigin) - center;
+		vec3 normal_far = normalize( vec3(int(tmp.x), int(tmp.y), int(tmp.z)) );
+		return BoxIntersection(true, vec3(transformation * vec4(rayOrigin + tNear * rayDirection, 1.0)), vec3(transformation * vec4(rayOrigin + tFar * rayOrigin, 1.0)), normal_near, normal_far, tNear);
 	}
 	//to get 3D position: rayOrigin + {tNear, tFar} * rayDirection
 }
@@ -259,31 +271,45 @@ Intersection closestIntersection(Scene scene, vec3 rayOrigin, vec3 rayDirection)
 	CylinderIntersection c = calcCylinderIntersection(rayOrigin, rayDirection, scene.cylinder.radius, scene.cylinder.height);
 	//find closest intersection -> minimal t_near value, if there is one
 	float tMin = maxFloat;
-	vec3 normal;
+	int shininess;
+	vec3 normal, ka, kd, ks;
 	vec4 color;
 	if(! (b.hit || s.hit || c.hit))
 	{
 		//no intersection
-		return Intersection(false, tMin, normal, color);
+		return Intersection(false, tMin, normal, color, vec3(0), vec3(0), vec3(0), 0);
 	}
 	if (b.hit && b.t_near < tMin)
 	{
 		tMin = b.t_near;
+		normal = b.normal_near;
 		color = vec4(1.0f, 0.0f, 1.0f, 1.0f);
+		ka = scene.box.ka;
+		kd = scene.box.kd;
+		ks = scene.box.ks;
+		shininess = scene.box.shininess;
 	}
 	if (s.hit && s.t_near < tMin)
 	{
 		tMin = s.t_near;
 		normal = s.normal;
 		color = vec4(1.0f, 1.0f, 0.0f, 1.0f);
+		ka = scene.sphere.ka;
+		kd = scene.sphere.kd;
+		ks = scene.sphere.ks;
+		shininess = scene.box.shininess;
 	}
 	if (c.hit && c.t_near < tMin)
 	{
 		tMin = c.t_near;
 		normal = c.normal_near;
 		color = vec4(0.0f, 1.0f, 1.0f, 1.0f);
+		ka = scene.cylinder.ka;
+		kd = scene.cylinder.kd;
+		ks = scene.cylinder.ks;
+		shininess = scene.cylinder.shininess;
 	}
-	return Intersection(true, tMin, normal, color);
+	return Intersection(true, tMin, normal, color, ka, kd, ks, shininess);
 }
 
 void main()
@@ -348,7 +374,7 @@ void main()
 
 	if(sec.hit)
 	{
-		fragColor = sec.color;
+		fragColor = sec.color * phongIllumination(rayOrigin + sec.tMin * rayDirection, rayOrigin, sec.normal, sec.ka, sec.kd, sec.ks, sec.shininess);
 		gl_FragDepth = calcDepth(rayOrigin + sec.tMin * rayDirection);
 		return;
 	}
