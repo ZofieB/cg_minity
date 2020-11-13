@@ -9,6 +9,9 @@ uniform vec3 worldLightPosition;
 
 uniform float currentTime;
 uniform float maxFloat;
+uniform float kr;
+uniform float kt;
+uniform float kl;
 
 in vec2 fragPosition;
 out vec4 fragColor;
@@ -125,7 +128,7 @@ SphereIntersection calcSphereIntersection(float r, vec3 rayOrigin, vec3 center, 
 		float ds = -dir_oc - sqrt(under_square_root);
 		vec3 near = rayOrigin +  min(da, ds) * dir;
 		vec3 far = rayOrigin + max(da, ds) * dir;
-		vec3 normal = (near - center);
+		vec3 normal = normalize(near - center);
 
 		return SphereIntersection(true, near, far, normal, min(da,ds));
 	}
@@ -216,13 +219,13 @@ CylinderIntersection calcCylinderIntersection(vec3 rayOrigin, vec3 rayDirection,
 		//intersection with upper boundary
 			
 			float t3 = (height - rayOrigin.y) / rayDirection.y;
-			return CylinderIntersection(true, rayOrigin + t3 * rayDirection, near, vec3(0.0, 1.0, 0.0), normal_near, t3);
+			return CylinderIntersection(true, rayOrigin + t3 * rayDirection, near, vec3(0.0, 1.0, 0.0), vec3(0.0f, 1.0f, 0.0f), t3);
 		}
 		if (near.y < 0 && 0 < far.y)
 		{
 		//intersection with lower boundary
 			float t3 = (0 - rayOrigin.y) / rayDirection.y;
-			return CylinderIntersection(true, rayOrigin + t3 * rayDirection, near, vec3(0.0, 1.0, 0.0), normal_near, t3);
+			return CylinderIntersection(true, rayOrigin + t3 * rayDirection, near, vec3(0.0, 1.0, 0.0), vec3(0.0f, -1.0f, 0.0f), t3);
 		}
 		//calc upper and lower boundary
 		if (near.y < 0 || near.y > height)
@@ -257,11 +260,13 @@ float phongIllumination(vec3 position, vec3 rayOrigin, vec3 normal, vec3 ka, vec
 	vec3 viewer = normalize( rayOrigin - position );
 
 	//calculate halfway vector
-	vec3 halfway = vec3(0) ; //TODO!
-	float specular = max (dot( halfway, normal), 0.0);
+	//vec3 halfway = (light + viewer) / length(light + viewer);
+	//float specular = max (dot( halfway, normal), 0.0);
+	vec3 reflection = normalize( 2 * dot(light, normalize(normal)) * normalize(normal) - light );
+	float specular = max (dot( reflection, viewer), 0.0);
 
 	//calculate illumination
-	return vec4( (ka * vec3(0.5, 0.5, 0.5) + kd * dot(light, normal) + ks * pow( specular, shininess) ), 1.0f);
+	return vec4( (ka * vec3(0.5, 0.5, 0.5) + kd * dot(light, normalize(normal)) * vec3(0.5f) + ks * pow( specular, shininess) * vec3(1.0f) ), 1.0f);
 }
 Intersection closestIntersection(Scene scene, vec3 rayOrigin, vec3 rayDirection)
 {
@@ -326,30 +331,8 @@ void main()
 
 	int max_bounces = 4;
 
-	/*
-	for(int i = 0; i < max_bounces; i++)
-	{
-		//do raytracing
-		//intersection tests
-		vec3 p = closestIntersection(scene);
-		vec3 n;
-
-		//illumintation - shadow ray
-		fragColor += phongIllumination(p, rayOrigin, normal, ka, kd, ks, shininess);
-
-		//reflection ray
-		vec3 r = (2 * dot(n, rayOrigin - p)) * n - (rayOrigin - p);
-
-		//refraction ray
-		shadowRay = 
-		//set new ray Origin and direction
-		rayOrigin = ;
-		rayDirection = ;
-	}
-	*/
-
 	float idx = (sin(0.5 * currentTime) + 1) / 2.0f;
-	vec3 spherePos = cubicBezierVector(vec3(0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 0.0f), vec3 (0.0f), idx);
+	vec3 spherePos = cubicBezierVector(vec3(1.0f), vec3(1.0f, -1.0f, 0.0f), vec3(1.0f, -1.0f, -1.0f), vec3 (1.0f), idx);
 	vec3 boxPos = vec3(0.0f);
 	vec3 cylinderPos = cubicBezierVector(vec3(-1.0f), vec3(-1.0f, 0.0f, 0.0f), vec3(-1.0f, -1.0f, -1.0f), vec3 (-1.0f), idx);
 
@@ -372,9 +355,53 @@ void main()
 	Scene scene = Scene(box, sphere, cylinder);
 	Intersection sec = closestIntersection(scene, rayOrigin, rayDirection);
 
+	struct Intersection
+{
+	bool hit;
+	float tMin;
+	vec3 normal;
+	vec4 color;
+	vec3 ka;
+	vec3 kd;
+	vec3 ks;
+	int shininess;
+};
+
 	if(sec.hit)
 	{
-		fragColor = sec.color * phongIllumination(rayOrigin + sec.tMin * rayDirection, rayOrigin, sec.normal, sec.ka, sec.kd, sec.ks, sec.shininess);
+		vec3 n = sec.normal;
+		vec3 p = rayOrigin + sec.tMin * rayDirection;
+		fragColor = kl * (sec.color * phongIllumination(p, rayOrigin, sec.normal, sec.ka, sec.kd, sec.ks, sec.shininess));
+		vec3 r = (2 * dot(n, rayOrigin - p)) * n - (rayOrigin - p);
+		vec3 n_rayOrigin = p;
+		vec3 n_rayDirection = r;
+		for(int i = 1; i < max_bounces; i++)
+		{
+			//do raytracing
+			//intersection tests
+			Intersection insec = closestIntersection(scene, n_rayOrigin, n_rayDirection);
+			if(insec.hit)
+			{
+				n = insec.normal;
+				p = n_rayOrigin + insec.tMin * n_rayDirection;
+				//illumintation - reflection ray
+				fragColor = fragColor + pow(kr, i) * (kl * (insec.color * phongIllumination(p, n_rayOrigin, insec.normal, insec.ka, insec.kd, insec.ks, insec.shininess)));
+
+				//reflection ray
+				r = (2 * dot(n, n_rayOrigin - p)) * n - (n_rayOrigin - p);
+
+				//refraction ray
+				//shadowRay = 
+				//shadow ray
+				//set new ray Origin and direction
+				n_rayOrigin = p;
+				n_rayDirection = r;
+			}
+			else
+			{
+				break;
+			}
+		}
 		gl_FragDepth = calcDepth(rayOrigin + sec.tMin * rayDirection);
 		return;
 	}

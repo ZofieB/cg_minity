@@ -33,6 +33,10 @@ namespace minity
 	private:
 		std::unique_ptr<globjects::VertexArray> m_quadArray = std::make_unique<globjects::VertexArray>();
 		std::unique_ptr<globjects::Buffer> m_quadVertices = std::make_unique<globjects::Buffer>();
+
+		float kr = 0.3;
+		float kl = 0.4;
+		float kt = 0.3;
 	};
 
 }

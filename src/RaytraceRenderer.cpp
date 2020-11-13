@@ -60,12 +60,27 @@ void RaytraceRenderer::display()
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
+	float mx_kr = 0.3;
+	float max_kl = 0.4;
+	float max_kt = 0.3;
+
+	if (ImGui::Begin("Parameter Raytracer"))
+	{
+		ImGui::SliderFloat("Reflection constant", &kr, 0.0f, 1.0f - kl - kt);
+		ImGui::SliderFloat("Illumination constant", &kl, 0.0f, 1.0f - kr - kt);
+		ImGui::SliderFloat("Refraction constant", &kt, 0.0f, 1.0f - kr - kl);
+		ImGui::End();
+	}
+
 	shaderProgramRaytrace->setUniform("modelViewProjectionMatrix", modelViewProjectionMatrix);
 	shaderProgramRaytrace->setUniform("inverseModelViewProjectionMatrix", inverseModelViewProjectionMatrix);
 	shaderProgramRaytrace->setUniform("worldCameraPosition", vec3(worldCameraPosition));
 	shaderProgramRaytrace->setUniform("worldLightPosition", vec3(worldLightPosition));
 	shaderProgramRaytrace->setUniform("currentTime", currentTime);
 	shaderProgramRaytrace->setUniform("maxFloat", std::numeric_limits<float>::max());
+	shaderProgramRaytrace->setUniform("kr", kr);
+	shaderProgramRaytrace->setUniform("kl", kl);
+	shaderProgramRaytrace->setUniform("kt", kt);
 
 	m_quadArray->bind();
 	shaderProgramRaytrace->use();

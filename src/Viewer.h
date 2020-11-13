@@ -23,6 +23,7 @@ namespace minity
 
 		void display();
 		float m_explosion = 0.0f;
+		bool modelEnabled = false;
 
 		GLFWwindow * window();
 		Scene* scene();
