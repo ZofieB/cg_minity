@@ -81,10 +81,8 @@ void main()
 				//bump map function
 				bump_map_value = a * (sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.y) * sin(k * fragment.texCoord.y));
 				//derivative bump map in u direction
-				//bu = a * k * sin(k * fragment.texCoord.y) * sin(k * fragment.texCoord.y) * sin(2 * k * fragment.texCoord.x);
 				bu = dFdx(bump_map_value);
 				//derivative bump map in v direction
-				//bv = a * k * sin(k * fragment.texCoord.x) * sin(k * fragment.texCoord.x) * sin(2 * k * fragment.texCoord.y);
 				bv = dFdy(bump_map_value);
 			}
 			else if (sinus)
@@ -94,8 +92,6 @@ void main()
 				bu = a * sin(k * fragment.texCoord.y) * cos(k * fragment.texCoord.x) * k;
 				bv = a * sin(k * fragment.texCoord.x) * cos(k * fragment.texCoord.y) * k;
 			}
-
-			position = position + bump_map_value * normal;
 			//transform normal according to bump map
 			normal = normalize(normal + bv * cross(fragment.tangent, normal) + bu * cross(normal, fragment.bitangent));
 		}

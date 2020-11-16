@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
 
 	// Create a context and, if valid, make it current
 	GLFWwindow * window = glfwCreateWindow(1280, 720, "minity", NULL, NULL);
+	//GLFWwindow * window = glfwCreateWindow(400, 400, "minity", NULL, NULL);
 
 	if (window == nullptr)
 	{

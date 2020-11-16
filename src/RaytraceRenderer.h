@@ -37,6 +37,7 @@ namespace minity
 		float kr = 0.3;
 		float kl = 0.4;
 		float kt = 0.3;
+		bool raytracing_enabled = false;
 	};
 
 }

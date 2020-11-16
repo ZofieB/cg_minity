@@ -66,6 +66,7 @@ void RaytraceRenderer::display()
 
 	if (ImGui::Begin("Parameter Raytracer"))
 	{
+		ImGui::Checkbox("Enable RT-scene", &raytracing_enabled);
 		ImGui::SliderFloat("Reflection constant", &kr, 0.0f, 1.0f - kl - kt);
 		ImGui::SliderFloat("Illumination constant", &kl, 0.0f, 1.0f - kr - kt);
 		ImGui::SliderFloat("Refraction constant", &kt, 0.0f, 1.0f - kr - kl);
@@ -81,6 +82,7 @@ void RaytraceRenderer::display()
 	shaderProgramRaytrace->setUniform("kr", kr);
 	shaderProgramRaytrace->setUniform("kl", kl);
 	shaderProgramRaytrace->setUniform("kt", kt);
+	shaderProgramRaytrace->setUniform("enableRT", raytracing_enabled);
 
 	m_quadArray->bind();
 	shaderProgramRaytrace->use();
